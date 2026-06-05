@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CogProfile v2 — あなたの思考を読む</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script>var ANTHROPIC_API_KEY = "あなたのAPIキーをここに入れる";</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--bg2:#fff;--bg3:#f0ebe0;
+  --text:#231f1a;--text2:#6b6560;--text3:#a8a29a;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.2);
+  --accent:#231f1a;--warn:#c0392b;
+  --c1:#e8743c;--c2:#e0405a;--c3:#7b5ec7;--c4:#2b9bd4;--c5:#34a86f;
+  --c1-soft:rgba(232,116,60,0.12);--c2-soft:rgba(224,64,90,0.12);
+  --c3-soft:rgba(123,94,199,0.12);--c4-soft:rgba(43,155,212,0.12);--c5-soft:rgba(52,168,111,0.12);
+  --r-md:8px;--r-lg:12px;--r-xl:16px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#16140f;--bg2:#211e18;--bg3:#2a2620;
+  --text:#f3efe6;--text2:#a09a90;--text3:#6a655d;
+  --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
+  --accent:#f3efe6;
+  --c1:#f0915e;--c2:#ec6079;--c3:#9d82e0;--c4:#52b8e8;--c5:#52c08a;
+  --c1-soft:rgba(240,145,94,0.16);--c2-soft:rgba(236,96,121,0.16);
+  --c3-soft:rgba(157,130,224,0.16);--c4-soft:rgba(82,184,232,0.16);--c5-soft:rgba(82,192,138,0.16);
+}}
+html,body{height:100%;font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text)}
+body{background-image:radial-gradient(circle at 12% 8%,var(--c1-soft) 0%,transparent 45%),radial-gradient(circle at 88% 12%,var(--c4-soft) 0%,transparent 42%),radial-gradient(circle at 75% 92%,var(--c3-soft) 0%,transparent 45%),radial-gradient(circle at 18% 88%,var(--c5-soft) 0%,transparent 40%)}
+.layout{display:flex;min-height:100vh}
+.sidebar{
+  width:220px;flex-shrink:0;
+  background:var(--bg2);border-right:.5px solid var(--border);
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.main{flex:1;min-width:0;padding:2rem 2.5rem;max-width:700px;padding-bottom:5rem}
+@media(max-width:680px){.sidebar{display:none}.main{padding:1.25rem 1rem;padding-bottom:5rem}}
+.sb-header{padding:1.25rem 1rem 1rem;border-bottom:.5px solid var(--border)}
+.sb-logo{font-size:13px;font-weight:500;color:var(--text)}
+.sb-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.sb-list{padding:.5rem 0;flex:1}
+.sb-section{padding:8px 1rem 2px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.sb-item{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 1rem;cursor:pointer;
+  font-size:12px;color:var(--text2);
+  border-left:2px solid transparent;transition:background .1s;
+}
+.sb-item:hover{background:var(--bg3)}
+.sb-item.active{color:var(--text);background:var(--bg3);border-left-color:var(--accent)}
+.sb-item.done{color:var(--text3)}
+.sb-item.edited .sb-edit-mark{display:inline}
+.sb-edit-mark{display:none;font-size:10px;color:var(--text3);margin-left:auto}
+.sb-item.locked{cursor:default;opacity:.55}
+.sb-item.locked:hover{background:transparent}
+.sb-lock{font-size:9px;margin-left:auto;opacity:.6}
+.sb-dot{width:6px;height:6px;border-radius:50%;background:var(--border2);flex-shrink:0}
+.sb-item.active .sb-dot{background:var(--accent)}
+.sb-item.done .sb-dot{background:var(--text3)}
+.sb-footer{padding:1rem;border-top:.5px solid var(--border);font-size:11px;color:var(--text3)}
+.screen{display:none}.screen.active{display:block}
+/* Start */
+.start-wrap{max-width:520px;margin:3rem auto;text-align:center}
+.start-wrap h1{font-size:25px;font-weight:500;margin-bottom:.75rem;line-height:1.45;background:linear-gradient(120deg,var(--c1),var(--c2) 40%,var(--c3) 70%,var(--c4));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.start-wrap p{font-size:15px;color:var(--text2);line-height:1.8;margin-bottom:2rem}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#fff;background:linear-gradient(90deg,var(--c3),var(--c4));border-radius:100px;padding:5px 14px;margin-bottom:1.5rem;font-weight:500}
+/* Hero decoration */
+.hero-deco{position:relative;margin-bottom:2rem}
+.hero-deco::before{content:'';position:absolute;top:-40px;left:50%;transform:translateX(-50%);width:280px;height:280px;background:radial-gradient(circle,rgba(180,160,100,0.12) 0%,transparent 70%);pointer-events:none;border-radius:50%}
+/* Q card decoration */
+.q-card-wrap{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r-xl);padding:1.75rem;margin-bottom:1rem;position:relative;overflow:hidden}
+.q-card-wrap::before{content:'';position:absolute;top:-60px;right:-60px;width:180px;height:180px;background:radial-gradient(circle,rgba(180,160,100,0.08) 0%,transparent 70%);pointer-events:none;border-radius:50%}
+/* Progress */
+.prog-bar{height:3px;background:var(--bg3);margin-bottom:2rem;border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--c1),var(--c2),var(--c3),var(--c4));transition:width .4s}
+/* Q header */
+.q-type-label{font-size:10px;color:var(--c2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem;font-weight:500}
+.q-title{font-size:20px;font-weight:500;line-height:1.5;margin-bottom:.5rem}
+.q-hint{font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:1.25rem}
+/* Task scene */
+.task-scene{background:var(--bg3);border-radius:var(--r-lg);padding:1.5rem;margin-bottom:.75rem;position:relative;text-align:center}
+.task-timer{position:absolute;top:12px;right:14px;font-size:12px;font-weight:500;color:var(--text2);background:var(--bg2);border-radius:100px;padding:3px 10px;border:.5px solid var(--border)}
+.task-timer.warn{color:var(--warn)}
+/* Options */
+.opts-grid{display:grid;gap:8px;margin-bottom:1rem}
+.opts-grid.two{grid-template-columns:1fr 1fr}
+.opt{
+  background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r-md);
+  padding:10px 14px;cursor:pointer;font-size:13px;color:var(--text);
+  display:flex;align-items:center;gap:8px;
+  transition:border-color .1s,background .1s;font-family:inherit;width:100%;text-align:left;
+}
+.opt:hover{border-color:var(--c4);background:var(--c4-soft)}
+.opt.sel{border-color:var(--c4);background:var(--c4-soft)}
+.opt.sel .opt-letter{background:var(--c4);color:#fff;border-color:var(--c4)}
+.opt-letter{width:22px;height:22px;border-radius:50%;border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text2);flex-shrink:0;transition:all .1s}
+/* Textarea */
+.free-area{
+  width:100%;min-height:140px;background:var(--bg2);
+  border:.5px solid var(--border);border-radius:var(--r-md);
+  padding:12px;font-size:14px;color:var(--text);font-family:inherit;
+  line-height:1.75;resize:vertical;outline:none;transition:border-color .1s;
+}
+.free-area:focus{border-color:var(--c4);box-shadow:0 0 0 3px var(--c4-soft)}
+.char-count{font-size:11px;color:var(--text3);margin-top:5px;text-align:right}
+.edit-note{font-size:11px;color:var(--text3);margin-top:3px}
+.input-label{font-size:13px;color:var(--text2);display:block;margin-bottom:.5rem}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:.5px solid var(--border2);border-radius:var(--r-md);padding:9px 20px;font-size:13px;color:var(--text);cursor:pointer;font-family:inherit;transition:background .1s}
+.btn:hover{background:var(--bg3)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn-primary{background:linear-gradient(90deg,var(--c1),var(--c2));color:#fff;border:none;font-weight:500}
+.btn-primary:hover{opacity:.9;background:linear-gradient(90deg,var(--c1),var(--c2))}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--text2)}
+.btn-ghost:hover{background:var(--bg3);border-color:var(--border)}
+.nav-row{display:flex;align-items:center;justify-content:space-between;margin-top:1.5rem}
+/* Float */
+.float-btn{position:fixed;bottom:1.5rem;right:1.5rem;z-index:100;background:var(--bg2);border:.5px solid var(--border2);border-radius:100px;padding:10px 18px;font-size:12px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(0,0,0,0.1);font-family:inherit;transition:background .1s}
+.float-btn:hover{background:var(--bg3)}
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;z-index:200}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border-radius:var(--r-xl);padding:1.75rem;max-width:360px;width:90%;border:.5px solid var(--border)}
+.modal h3{font-size:16px;font-weight:500;margin-bottom:.5rem}
+.modal p{font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:1.25rem}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+/* Loading */
+.spin{width:30px;height:30px;border:3px solid var(--bg3);border-top-color:var(--c2);border-right-color:var(--c3);border-radius:50%;animation:sp .8s linear infinite;margin:0 auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* Result */
+.r-title{font-size:24px;font-weight:500;margin-bottom:1.75rem;line-height:1.35;background:linear-gradient(120deg,var(--c2),var(--c3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.r-name{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.dim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:1.75rem}
+.dim-card{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r-lg);padding:.875rem;position:relative;overflow:hidden}
+.dim-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px}
+.dim-card:nth-child(5n+1)::before{background:var(--c1)}
+.dim-card:nth-child(5n+2)::before{background:var(--c2)}
+.dim-card:nth-child(5n+3)::before{background:var(--c3)}
+.dim-card:nth-child(5n+4)::before{background:var(--c4)}
+.dim-card:nth-child(5n+5)::before{background:var(--c5)}
+.dim-lbl{font-size:11px;color:var(--text2);margin-bottom:3px}
+.dim-val{font-size:16px;font-weight:500}
+.dim-bar-bg{height:4px;background:var(--bg3);border-radius:2px;margin-top:7px;overflow:hidden}
+.dim-bar{height:100%;border-radius:2px}
+.dim-card:nth-child(5n+1) .dim-bar{background:var(--c1)}
+.dim-card:nth-child(5n+2) .dim-bar{background:var(--c2)}
+.dim-card:nth-child(5n+3) .dim-bar{background:var(--c3)}
+.dim-card:nth-child(5n+4) .dim-bar{background:var(--c4)}
+.dim-card:nth-child(5n+5) .dim-bar{background:var(--c5)}
+.dim-score{font-size:11px;color:var(--text3);margin-top:4px}
+.iblock{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r-lg);padding:1.5rem;margin-bottom:.875rem;position:relative;overflow:hidden}
+.iblock::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%}
+.iblock:nth-of-type(1)::before{background:linear-gradient(var(--c1),var(--c2))}
+.iblock:nth-of-type(2)::before{background:linear-gradient(var(--c3),var(--c4))}
+.iblock:nth-of-type(3)::before{background:linear-gradient(var(--c5),var(--c1))}
+.iblock:nth-of-type(4)::before{background:linear-gradient(var(--c2),var(--c3))}
+.iblock:nth-of-type(5)::before{background:linear-gradient(var(--c4),var(--c5))}
+.iblock:nth-of-type(6)::before{background:linear-gradient(var(--c3),var(--c1))}
+.iblock-title{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.75rem}
+.iblock-body{font-size:15px;line-height:1.95;color:var(--text)}
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:.75rem}
+.tag-pill{font-size:12px;color:#fff;border-radius:100px;padding:5px 13px;font-weight:500}
+.tag-pill:nth-child(5n+1){background:var(--c1)}
+.tag-pill:nth-child(5n+2){background:var(--c2)}
+.tag-pill:nth-child(5n+3){background:var(--c3)}
+.tag-pill:nth-child(5n+4){background:var(--c4)}
+.tag-pill:nth-child(5n+5){background:var(--c5)}
+.card{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r-lg);padding:1.125rem}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-header">
+      <div class="sb-logo">CogProfile <span style="font-weight:400;color:var(--text2)">v2</span></div>
+      <div class="sb-sub">思考の深層を読む</div>
+    </div>
+    <div class="sb-list" id="sb-list"></div>
+    <div class="sb-footer">回答はいつでも修正できます</div>
+  </aside>
+
+  <main class="main">
+    <!-- Start -->
+    <div class="screen active" id="s-start">
+      <div class="start-wrap">
+        <div class="tag"><i class="ti ti-eye"></i> 思考分析エンジン v2</div>
+        <h1>あなたの思考の癖を、<br>あなた自身に見せる</h1>
+        <p>タスク・振り返り・自由記述の三層を通じて、無意識のパターン・才能・思考の流れを読み解きます。正解はありません。思ったままに。</p>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:1.75rem">最大25問 ・ いつでも結果を確認可能 ・ 匿名</p>
+        <button class="btn btn-primary" id="start-btn" style="font-size:15px;padding:12px 32px">
+          はじめる <i class="ti ti-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quiz -->
+    <div class="screen" id="s-quiz">
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div id="q-body"></div>
+    </div>
+
+    <!-- Loading -->
+    <div class="screen" id="s-load">
+      <div style="padding:5rem 1rem;text-align:center">
+        <div class="spin"></div>
+        <p style="font-size:14px;color:var(--text2);margin-top:1.25rem" id="load-txt">回答を読み解いています…</p>
+        <p style="font-size:12px;color:var(--text3);margin-top:.5rem">文章の構造・語彙・思考の流れを分析中</p>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="screen" id="s-result">
+      <div style="max-width:620px">
+        <div class="r-name">あなたの認知プロファイル</div>
+        <div class="r-title" id="r-title">—</div>
+        <div class="dim-grid" id="r-dims"></div>
+        <div id="r-blocks"></div>
+        <div style="margin-top:1.75rem;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="r-retry"><i class="ti ti-refresh"></i> もう一度</button>
+          <button class="btn" id="r-deepen"><i class="ti ti-copy"></i> 結果をコピーしてAIに相談 ↗</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Float -->
+<button class="float-btn" id="float-btn" style="display:none" onclick="openConfirm()">
+  <i class="ti ti-chart-bar"></i> 今すぐ結果を見る
+</button>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3>本当に今見ますか？</h3>
+    <p>続けると精度が上がります。今の回答でも分析は可能ですが、より深い洞察には残りの問いが役立ちます。</p>
+    <div class="modal-btns">
+      <button class="btn btn-sm" onclick="closeConfirm()">続ける</button>
+      <button class="btn btn-sm btn-primary" onclick="closeConfirm();startAnalysis()">今見る</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var QUESTIONS = [
+  {id:'visual_memory',type:'task_visual',layer:'タスク',label:'視覚記憶',
+   title:'この場面を30秒で覚えてください',
+   hint:'3人の人物、それぞれの服の色と行動を記憶してください。',
+   duration:30, no_back:true,
+   inputLabel:'隠れました。3人の人物について、覚えていることをすべて書いてください'},
+
+  {id:'visual_recall_check',type:'choice_free',layer:'タスク',label:'記憶の確認',
+   title:'どれくらい覚えられましたか？',
+   hint:'正直に答えてください。覚えられなかった場合もそれ自体が大切なデータです。',
+   no_back:true,
+   opts:['ほぼ完璧に覚えられた','だいたい覚えられた','半分くらい','あまり覚えられなかった'],
+   inputLabel:'覚えやすかった部分・覚えにくかった部分があれば教えてください'},
+
+  {id:'visual_reflect',type:'reflection',layer:'振り返り',label:'視覚記憶の振り返り',
+   title:'どうやって覚えようとしましたか？',
+   hint:'頭の中で何をしていたか、そのままで。'},
+
+  {id:'pattern_num',type:'task_choice',layer:'タスク',label:'数列パターン',
+   title:'数列の次に来る数は？　2、4、8、16、？',
+   opts:['32','20','24','18'],correct:0,
+   inputLabel:'なぜそう思いましたか？'},
+
+  {id:'word_memory',type:'task_words',layer:'タスク',label:'ワード記憶',
+   title:'この言葉を20秒で覚えてください',
+   hint:'方法は自由。順番も問いません。',
+   duration:20, no_back:true,
+   words:['海','鍵','三角形','静寂','橋','火','地図','影'],
+   inputLabel:'隠れました。覚えている言葉をすべて書いてください'},
+
+  {id:'word_recall_check',type:'choice_free',layer:'タスク',label:'記憶の確認',
+   title:'何個くらい思い出せましたか？（全8個）',
+   no_back:true,
+   opts:['8個すべて','6〜7個','4〜5個','3個以下'],
+   inputLabel:'思い出せた順番や、覚えにくかった言葉はありましたか？'},
+
+  {id:'word_reflect',type:'reflection',layer:'振り返り',label:'ワード記憶の振り返り',
+   title:'どの順番で・どうやって覚えましたか？',
+   hint:'頭の中で起きていたことを、そのまま。'},
+
+  {id:'new_learning',type:'free',layer:'問い',label:'学習スタイル',
+   title:'新しいことを覚えるとき、どうやって覚えますか？',
+   hint:'自分なりのやり方を具体的に。'},
+
+  {id:'door_blank',type:'free',layer:'問い',label:'連想',
+   title:'「扉の向こうに＿＿がある」　空白を埋めてください',
+   hint:'最初に浮かんだことを、そのまま。'},
+
+  {id:'first_meeting',type:'free',layer:'問い',label:'対人認知',
+   title:'初めて会う人と話すとき、最初に何を気にしますか？'},
+
+  {id:'planning',type:'free',layer:'問い',label:'思考スタイル',
+   title:'計画を立てるとき、細かく決めたいですか？それとも大まかでいいですか？',
+   hint:'どちらが心地いいか、なぜそうなのか。'},
+
+  {id:'grassland',type:'free',layer:'内省',label:'感性・連想',
+   title:'「草原」と聞いて浮かんだことを自由に書いてください',
+   hint:'感情でも、映像でも、記憶でも、言葉でも。'},
+
+  {id:'best_scene',type:'free',layer:'内省',label:'最古の記憶',
+   title:'あなたが覚えている中で、一番古い時の記憶はいつのものですか？またどんな記憶ですか？',
+   hint:'何歳のころか、どんな場面だったか、覚えている感覚や感情も。'},
+
+  {id:'time_flies',type:'free',layer:'内省',label:'才能・熱中',
+   title:'気づいたら時間を忘れてやっていることは何ですか？'},
+
+  {id:'childhood',type:'free',layer:'内省',label:'原初の才能',
+   title:'子供のころ夢中だったことは何ですか？',
+   hint:'なぜ夢中だったかも。'},
+
+  {id:'proud_praise',type:'free',layer:'内省',label:'価値観・自己認識',
+   title:'褒められて一番嬉しかったことは何ですか？'},
+
+  {id:'money_or_time',type:'choice_free',layer:'内省',label:'価値観',
+   title:'お金と時間、どちらかしか手に入らないとしたら？',
+   opts:['お金','時間'],
+   inputLabel:'なぜそちらを選びますか？'},
+
+  {id:'change_world',type:'free',layer:'内省',label:'世界観・使命感',
+   title:'世界を一つだけ変えられるとしたら、何を変えますか？'},
+
+  {id:'story_scene',type:'free',layer:'内省',label:'自己認識',
+   title:'自分が主人公の物語があるとしたら、今どのシーンにいると思いますか？'},
+
+  {id:'normal',type:'free',layer:'深層',label:'哲学・世界観',
+   title:'「普通」ってなんだと思いますか？'},
+
+  {id:'what_you_protect',type:'free',layer:'深層',label:'核心的価値観',
+   title:'絶対に譲れないものは何ですか？',
+   hint:'なぜそれが譲れないのか。'},
+
+  {id:'when_alive',type:'free',layer:'深層',label:'生命力',
+   title:'一番「生きている」と感じるのはどんなときですか？'},
+
+  {id:'unseen_talent',type:'free',layer:'深層',label:'未発見の才能',
+   title:'まだ誰にも認められていないけれど、自分にはこれがあると思うものはありますか？',
+   hint:'「ない」でも正直に。'},
+
+  {id:'letter_to_self',type:'free',layer:'深層',label:'自己への言葉',
+   title:'10年後の自分に一文だけ伝えるとしたら？'},
+
+  {id:'free_final',type:'free',layer:'深層',label:'最後の自由記述',
+   title:'今、頭の中にあることを何でも書いてください',
+   hint:'この診断について・自分について・何でも。'},
+];
+
+var cur=0, answers={}, taskTimer=null;
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function startQuiz(){
+  showScreen('s-quiz');
+  document.getElementById('float-btn').style.display='flex';
+  goTo(0);
+}
+
+/* ── Sidebar ── */
+function renderSidebar(){
+  var layerOrder=['タスク','振り返り','問い','内省','深層'];
+  var grouped={};
+  layerOrder.forEach(function(l){grouped[l]=[]});
+  QUESTIONS.forEach(function(q,i){if(grouped[q.layer])grouped[q.layer].push({q:q,i:i})});
+  var html='';
+  layerOrder.forEach(function(layer){
+    if(!grouped[layer].length) return;
+    html+='<div class="sb-section">'+layer+'</div>';
+    grouped[layer].forEach(function(item){
+      var a=answers[item.q.id];
+      var done=a&&(a.value||a.optsText||a.taskDone);
+      var edited=a&&a.edits&&a.edits.length>0;
+      var active=item.i===cur;
+      var isTimed=(item.q.type==='task_visual'||item.q.type==='task_words');
+      var locked=isTimed&&!active;
+      var cls='sb-item'+(active?' active':'')+(done&&!active?' done':'')+(edited?' edited':'')+(locked?' locked':'');
+      html+='<div class="'+cls+'"'+(locked?'':' data-idx="'+item.i+'"')+'>'
+        +'<span class="sb-dot"></span>'+item.q.label
+        +(locked?'<span class="sb-lock">🔒</span>':'<span class="sb-edit-mark">✎</span>')
+        +'</div>';
+    });
+  });
+  document.getElementById('sb-list').innerHTML=html;
+  document.querySelectorAll('.sb-item[data-idx]').forEach(function(el){
+    el.addEventListener('click',function(){saveCurrentAnswer();goTo(parseInt(this.getAttribute('data-idx')))});
+  });
+}
+
+/* ── Router ── */
+function goTo(idx){
+  if(taskTimer){clearInterval(taskTimer);taskTimer=null}
+  cur=idx;
+  document.getElementById('prog-fill').style.width=Math.round(((cur+1)/QUESTIONS.length)*100)+'%';
+  renderQ(QUESTIONS[cur]);
+  renderSidebar();
+}
+
+function renderQ(q){
+  var ex=answers[q.id]||{};
+  var html='';
+  html+='<div style="margin-bottom:1.5rem">';
+  html+='<div class="q-type-label">'+q.layer+' — '+q.label+'</div>';
+  html+='<div class="q-title">'+q.title+'</div>';
+  if(q.hint) html+='<div class="q-hint">'+q.hint+'</div>';
+  html+='</div>';
+
+  if(q.type==='task_visual')       html+=buildVisualTask(q,ex);
+  else if(q.type==='task_words')   html+=buildWordTask(q,ex);
+  else if(q.type==='task_choice')  html+=buildChoiceTask(q,ex);
+  else if(q.type==='choice_free')  html+=buildChoiceFree(q,ex);
+  else                              html+=buildFree(q,ex);
+
+  html+='<div class="nav-row">';
+  var showBack = cur > 0 && !q.no_back;
+  html+= showBack
+    ?'<button class="btn btn-ghost" id="prev-btn"><i class="ti ti-arrow-left"></i> 戻る</button>'
+    :'<span></span>';
+  html+=(cur<QUESTIONS.length-1)
+    ?'<button class="btn btn-primary" id="next-btn">次へ <i class="ti ti-arrow-right"></i></button>'
+    :'<button class="btn btn-primary" id="next-btn"><i class="ti ti-sparkles"></i> 分析する</button>';
+  html+='</div>';
+
+  document.getElementById('q-body').innerHTML=html;
+
+  if(document.getElementById('prev-btn'))
+    document.getElementById('prev-btn').addEventListener('click',function(){saveCurrentAnswer();goTo(cur-1)});
+  document.getElementById('next-btn').addEventListener('click',handleNext);
+
+  document.querySelectorAll('.opt').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.opt').forEach(function(x){x.classList.remove('sel')});
+      this.classList.add('sel');
+    });
+  });
+
+  if((q.type==='task_visual'||q.type==='task_words')&&!ex.taskDone)
+    startTaskTimer(q);
+
+  var ta=document.getElementById('main-ta');
+  if(ta){
+    ta.addEventListener('input',function(){
+      var c=document.getElementById('char-cnt');
+      if(c)c.textContent=this.value.length+'文字';
+    });
+    ta.addEventListener('blur',function(){
+      var prev=(answers[q.id]&&answers[q.id].value)||'';
+      var nxt=this.value;
+      if(prev&&nxt!==prev){
+        if(!answers[q.id])answers[q.id]={};
+        if(!answers[q.id].edits)answers[q.id].edits=[];
+        answers[q.id].edits.push({before:prev,after:nxt,at:Date.now()});
+        var en=document.getElementById('edit-note');
+        if(en)en.textContent='修正あり（'+answers[q.id].edits.length+'回）';
+        renderSidebar();
+      }
+    });
+  }
+}
+
+/* ── Task builders ── */
+function buildVisualTask(q,ex){
+  var h='';
+  if(!ex.taskDone){
+    h+='<div class="task-scene" id="task-scene">';
+    h+='<div class="task-timer" id="task-timer">'+q.duration+'</div>';
+    h+=svgScene();
+    h+='</div>';
+    h+='<div style="text-align:right;margin-bottom:.75rem">'
+      +'<button class="btn btn-ghost btn-sm" id="skip-btn">スキップ <i class="ti ti-player-skip-forward"></i></button>'
+      +'</div>';
+    h+='<label class="input-label">'+q.inputLabel+'</label>';
+    h+='<textarea class="free-area" id="main-ta" style="display:none" placeholder="思い出せることを書いてください…">'+(ex.value||'')+'</textarea>';
+  } else {
+    h+='<div class="card" style="margin-bottom:.875rem"><p style="font-size:13px;color:var(--text2)">場面は非表示になりました。記憶を頼りに書いてください。</p></div>';
+    h+='<label class="input-label">'+q.inputLabel+'</label>';
+    h+='<textarea class="free-area" id="main-ta" placeholder="思い出せることを書いてください…">'+(ex.value||'')+'</textarea>';
+  }
+  h+='<div class="char-count" id="char-cnt">'+(ex.value||'').length+'文字</div>';
+  if(ex.edits&&ex.edits.length)h+='<div class="edit-note" id="edit-note">修正あり（'+ex.edits.length+'回）</div>';
+  return h;
+}
+
+function buildWordTask(q,ex){
+  var h='';
+  if(!ex.taskDone){
+    h+='<div class="task-scene" id="task-scene">';
+    h+='<div class="task-timer" id="task-timer">'+q.duration+'</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:1rem">';
+    q.words.forEach(function(w){h+='<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r-md);padding:8px 18px;font-size:15px">'+w+'</div>'});
+    h+='</div></div>';
+    h+='<div style="text-align:right;margin-bottom:.75rem">'
+      +'<button class="btn btn-ghost btn-sm" id="skip-btn">スキップ <i class="ti ti-player-skip-forward"></i></button>'
+      +'</div>';
+    h+='<label class="input-label">'+q.inputLabel+'</label>';
+    h+='<textarea class="free-area" id="main-ta" style="display:none" placeholder="覚えている言葉を書いてください…">'+(ex.value||'')+'</textarea>';
+  } else {
+    h+='<div class="card" style="margin-bottom:.875rem"><p style="font-size:13px;color:var(--text2)">言葉は非表示になりました。</p></div>';
+    h+='<label class="input-label">'+q.inputLabel+'</label>';
+    h+='<textarea class="free-area" id="main-ta" placeholder="覚えている言葉を書いてください…">'+(ex.value||'')+'</textarea>';
+  }
+  h+='<div class="char-count" id="char-cnt">'+(ex.value||'').length+'文字</div>';
+  return h;
+}
+
+function buildChoiceTask(q,ex){
+  var L=['A','B','C','D','E'];
+  var h='<div class="opts-grid '+(q.opts.length<=4?'two':'')+'" style="margin-bottom:1.5rem">';
+  q.opts.forEach(function(o,i){
+    h+='<button class="opt'+(ex.opts===i?' sel':'')+'" data-i="'+i+'"><span class="opt-letter">'+L[i]+'</span>'+o+'</button>';
+  });
+  h+='</div>';
+  h+='<div style="border-top:.5px solid var(--border);padding-top:1.25rem;margin-bottom:.75rem">';
+  h+='<label class="input-label" style="font-size:14px;color:var(--text);margin-bottom:.75rem">'+(q.inputLabel||'理由や考えを書いてください')+'</label>';
+  h+='<textarea class="free-area" id="main-ta" style="min-height:120px" placeholder="どうやって考えましたか？思ったことをそのまま書いてください…">'+(ex.value||'')+'</textarea>';
+  h+='<div class="char-count" id="char-cnt">'+(ex.value||'').length+'文字</div>';
+  if(ex.edits&&ex.edits.length)h+='<div class="edit-note" id="edit-note">修正あり（'+ex.edits.length+'回）</div>';
+  h+='</div>';
+  return h;
+}
+
+function buildChoiceFree(q,ex){
+  var L=['A','B','C','D'];
+  var isFour = q.opts.length > 2;
+  var h='<div class="opts-grid '+(isFour?'two':'')+'" style="margin-bottom:1.5rem">';
+  q.opts.forEach(function(o,i){
+    h+='<button class="opt'+(ex.opts===i?' sel':'')+'" data-i="'+i+'"><span class="opt-letter">'+L[i]+'</span>'+o+'</button>';
+  });
+  h+='</div>';
+  if(q.inputLabel){
+    h+='<div style="border-top:.5px solid var(--border);padding-top:1.25rem;margin-bottom:.75rem">';
+    h+='<label class="input-label" style="font-size:14px;color:var(--text);margin-bottom:.75rem">'+q.inputLabel+'</label>';
+    h+='<textarea class="free-area" id="main-ta" style="min-height:100px" placeholder="思ったことをそのまま…">'+(ex.value||'')+'</textarea>';
+    h+='<div class="char-count" id="char-cnt">'+(ex.value||'').length+'文字</div>';
+    if(ex.edits&&ex.edits.length)h+='<div class="edit-note" id="edit-note">修正あり（'+ex.edits.length+'回）</div>';
+    h+='</div>';
+  }
+  return h;
+}
+
+function buildFree(q,ex){
+  var h='<textarea class="free-area" id="main-ta" style="min-height:160px" placeholder="思ったことをそのまま書いてください…">'+(ex.value||'')+'</textarea>';
+  h+='<div class="char-count" id="char-cnt">'+(ex.value||'').length+'文字</div>';
+  if(ex.edits&&ex.edits.length)h+='<div class="edit-note" id="edit-note">修正あり（'+ex.edits.length+'回）</div>';
+  return h;
+}
+
+/* ── SVG Scene ── */
+function svgScene(){
+  return '<svg viewBox="0 0 560 280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;display:block;border-radius:8px">'
+  // 空
+  +'<rect width="560" height="280" fill="#d4eaf7"/>'
+  // 雲
+  +'<ellipse cx="90" cy="38" rx="42" ry="18" fill="#fff" opacity=".9"/>'
+  +'<ellipse cx="122" cy="30" rx="30" ry="16" fill="#fff" opacity=".9"/>'
+  +'<ellipse cx="64" cy="35" rx="24" ry="14" fill="#fff" opacity=".9"/>'
+  +'<ellipse cx="400" cy="48" rx="36" ry="15" fill="#fff" opacity=".8"/>'
+  +'<ellipse cx="432" cy="40" rx="26" ry="13" fill="#fff" opacity=".8"/>'
+  // 太陽
+  +'<circle cx="505" cy="42" r="30" fill="#f9d45c"/>'
+  +'<circle cx="505" cy="42" r="23" fill="#fbe47a"/>'
+  // 地面
+  +'<rect x="0" y="205" width="560" height="75" fill="#8db86e"/>'
+  +'<rect x="0" y="218" width="560" height="62" fill="#7daa5e"/>'
+  // 石畳（中央）
+  +'<rect x="215" y="218" width="130" height="62" fill="#c8bfa8"/>'
+  +'<line x1="215" y1="238" x2="345" y2="238" stroke="#b8af98" stroke-width="1"/>'
+  +'<line x1="215" y1="258" x2="345" y2="258" stroke="#b8af98" stroke-width="1"/>'
+  +'<line x1="255" y1="218" x2="255" y2="280" stroke="#b8af98" stroke-width="1"/>'
+  +'<line x1="295" y1="218" x2="295" y2="280" stroke="#b8af98" stroke-width="1"/>'
+  +'<line x1="335" y1="218" x2="335" y2="280" stroke="#b8af98" stroke-width="1"/>'
+  // 鍛冶屋の建物（左）
+  +'<rect x="15" y="135" width="95" height="75" rx="3" fill="#c4956a"/>'
+  +'<polygon points="10,135 115,135 62,93" fill="#8B4513"/>'
+  +'<rect x="42" y="170" width="42" height="40" rx="2" fill="#3a2010"/>'
+  +'<rect x="46" y="174" width="16" height="16" rx="1" fill="#e67e22" opacity=".5"/>'
+  +'<rect x="64" y="174" width="16" height="16" rx="1" fill="#e67e22" opacity=".35"/>'
+  // 煙突
+  +'<rect x="82" y="95" width="11" height="32" fill="#777"/>'
+  +'<ellipse cx="88" cy="90" rx="9" ry="11" fill="#bbb" opacity=".45"/>'
+  +'<ellipse cx="92" cy="74" rx="7" ry="9" fill="#bbb" opacity=".25"/>'
+  +'<ellipse cx="87" cy="60" rx="5" ry="7" fill="#bbb" opacity=".15"/>'
+  // 看板（中央）
+  +'<rect x="265" y="145" width="5" height="62" fill="#8B6914" rx="2"/>'
+  +'<rect x="238" y="143" width="60" height="30" rx="4" fill="#f5e6c0" stroke="#c8a830" stroke-width="1.5"/>'
+  +'<text x="268" y="162" text-anchor="middle" font-size="9.5" fill="#5a3a1a" font-family="sans-serif">この先 →</text>'
+  // 木（右）
+  +'<rect x="442" y="165" width="10" height="55" fill="#7a5c2a" rx="2"/>'
+  +'<ellipse cx="447" cy="148" rx="32" ry="30" fill="#5a8a3a"/>'
+  +'<ellipse cx="430" cy="162" rx="24" ry="20" fill="#6a9a4a"/>'
+  +'<ellipse cx="464" cy="162" rx="24" ry="20" fill="#6a9a4a"/>'
+  +'<rect x="492" y="175" width="8" height="45" fill="#7a5c2a" rx="2"/>'
+  +'<ellipse cx="496" cy="158" rx="24" ry="24" fill="#5a8a3a"/>'
+  +'<ellipse cx="496" cy="158" rx="16" ry="16" fill="#6a9a4a"/>'
+
+  // ── 黒服・鍛冶師 ──
+  +'<g transform="translate(105,108)">'
+  +'<ellipse cx="0" cy="107" rx="20" ry="6" fill="rgba(0,0,0,0.13)"/>'
+  // ブーツ
+  +'<rect x="-14" y="72" width="12" height="32" rx="6" fill="#111"/>'
+  +'<rect x="2" y="72" width="12" height="32" rx="6" fill="#111"/>'
+  +'<ellipse cx="-8" cy="104" rx="13" ry="7" fill="#0a0a0a"/>'
+  +'<ellipse cx="8" cy="104" rx="13" ry="7" fill="#0a0a0a"/>'
+  // ズボン
+  +'<rect x="-14" y="56" width="28" height="20" rx="4" fill="#2a2a2a"/>'
+  // 胴体・革ベスト
+  +'<rect x="-18" y="14" width="36" height="45" rx="10" fill="#1a1a1a"/>'
+  +'<rect x="-11" y="17" width="22" height="40" rx="6" fill="#5a3a1a"/>'
+  // ベルト
+  +'<rect x="-18" y="51" width="36" height="7" rx="2" fill="#2a1800"/>'
+  +'<rect x="-5" y="51" width="10" height="7" rx="1" fill="#d4a010"/>'
+  // 腕左（ハンマー）
+  +'<rect x="-32" y="14" width="15" height="11" rx="5" fill="#1a1a1a"/>'
+  // ハンマー
+  +'<rect x="-46" y="5" width="6" height="30" rx="3" fill="#8B6914"/>'
+  +'<rect x="-55" y="0" width="24" height="14" rx="4" fill="#666"/>'
+  +'<rect x="-55" y="0" width="24" height="6" rx="3" fill="#888"/>'
+  // 腕右
+  +'<rect x="17" y="19" width="15" height="11" rx="5" fill="#1a1a1a"/>'
+  // 頭
+  +'<circle cx="0" cy="0" r="21" fill="#c8956a"/>'
+  // 帽子
+  +'<rect x="-24" y="-14" width="48" height="10" rx="4" fill="#1a1a1a"/>'
+  +'<rect x="-16" y="-31" width="32" height="21" rx="6" fill="#222"/>'
+  // ひげ
+  +'<path d="M-11 9 Q0 18 11 9" stroke="#5a3a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
+  +'<path d="M-13 6 Q-6 12 0 9 Q6 12 13 6" stroke="#8B5a2a" stroke-width="1.5" fill="none"/>'
+  // 目
+  +'<ellipse cx="-7" cy="1" rx="4.5" ry="4.5" fill="#fff"/>'
+  +'<ellipse cx="7" cy="1" rx="4.5" ry="4.5" fill="#fff"/>'
+  +'<circle cx="-6" cy="2" r="2.8" fill="#2a1400"/>'
+  +'<circle cx="8" cy="2" r="2.8" fill="#2a1400"/>'
+  +'<circle cx="-5" cy="1" r="1.1" fill="#fff"/>'
+  +'<circle cx="9" cy="1" r="1.1" fill="#fff"/>'
+  // 眉毛
+  +'<rect x="-13" y="-7" width="11" height="3.5" rx="1.5" fill="#2a1400"/>'
+  +'<rect x="2" y="-7" width="11" height="3.5" rx="1.5" fill="#2a1400"/>'
+  +'</g>'
+  +'<text x="105" y="272" text-anchor="middle" font-size="12" fill="#4a4035" font-family="sans-serif" font-weight="500">黒服の鍛冶師</text>'
+
+  // ── 赤服・少女 ──
+  +'<g transform="translate(280,112)">'
+  +'<ellipse cx="0" cy="100" rx="19" ry="5" fill="rgba(0,0,0,0.11)"/>'
+  // スカート
+  +'<polygon points="-19,52 19,52 26,92 -26,92" fill="#e74c3c"/>'
+  +'<polygon points="-26,92 26,92 30,105 -30,105" fill="#c0392b"/>'
+  +'<path d="M-26,92 Q-19,99 -12,92 Q-5,99 2,92 Q9,99 16,92 Q23,99 26,92" stroke="#fff" stroke-width="1.5" fill="none" opacity=".55"/>'
+  // 足
+  +'<rect x="-12" y="88" width="10" height="20" rx="5" fill="#f4c5a0"/>'
+  +'<rect x="2" y="88" width="10" height="20" rx="5" fill="#f4c5a0"/>'
+  +'<ellipse cx="-7" cy="108" rx="10" ry="5.5" fill="#8B3A2A"/>'
+  +'<ellipse cx="7" cy="108" rx="10" ry="5.5" fill="#8B3A2A"/>'
+  // 胴体
+  +'<rect x="-16" y="12" width="32" height="42" rx="10" fill="#e74c3c"/>'
+  // 白い衿
+  +'<polygon points="-8,12 8,12 4,25 -4,25" fill="#fff" opacity=".85"/>'
+  // 腕左
+  +'<rect x="-31" y="14" width="15" height="11" rx="5" fill="#e74c3c"/>'
+  +'<circle cx="-31" cy="19" r="7" fill="#f4c5a0"/>'
+  // 腕右・指さし
+  +'<rect x="16" y="10" width="32" height="11" rx="5" fill="#e74c3c"/>'
+  +'<circle cx="50" cy="15" r="7.5" fill="#f4c5a0"/>'
+  +'<rect x="54" y="11" width="11" height="5" rx="2.5" fill="#f4c5a0"/>'
+  // 頭
+  +'<circle cx="0" cy="0" r="21" fill="#f4c5a0"/>'
+  // 髪
+  +'<ellipse cx="0" cy="-10" rx="22" ry="16" fill="#7B3F00"/>'
+  // おさげ左
+  +'<rect x="-25" y="-8" width="9" height="44" rx="4.5" fill="#7B3F00"/>'
+  +'<ellipse cx="-21" cy="38" rx="7" ry="5" fill="#7B3F00"/>'
+  // おさげ右
+  +'<rect x="16" y="-8" width="9" height="44" rx="4.5" fill="#7B3F00"/>'
+  +'<ellipse cx="20" cy="38" rx="7" ry="5" fill="#7B3F00"/>'
+  // リボン左
+  +'<polygon points="-29,0 -18,5 -29,10" fill="#ff6b6b"/>'
+  +'<polygon points="-9,0 -20,5 -9,10" fill="#ff6b6b"/>'
+  +'<circle cx="-19" cy="5" r="5" fill="#ff4444"/>'
+  // リボン右
+  +'<polygon points="29,0 18,5 29,10" fill="#ff6b6b"/>'
+  +'<polygon points="9,0 20,5 9,10" fill="#ff6b6b"/>'
+  +'<circle cx="19" cy="5" r="5" fill="#ff4444"/>'
+  // 目
+  +'<ellipse cx="-7" cy="1" rx="4.5" ry="5" fill="#fff"/>'
+  +'<ellipse cx="7" cy="1" rx="4.5" ry="5" fill="#fff"/>'
+  +'<circle cx="-6" cy="2" r="2.8" fill="#2a0a00"/>'
+  +'<circle cx="8" cy="2" r="2.8" fill="#2a0a00"/>'
+  +'<circle cx="-5" cy="1" r="1.1" fill="#fff"/>'
+  +'<circle cx="9" cy="1" r="1.1" fill="#fff"/>'
+  // まつげ
+  +'<line x1="-12" y1="-3" x2="-14" y2="-8" stroke="#2a0a00" stroke-width="1.5"/>'
+  +'<line x1="-7" y1="-5" x2="-7" y2="-9" stroke="#2a0a00" stroke-width="1.5"/>'
+  +'<line x1="-2" y1="-3" x2="-1" y2="-8" stroke="#2a0a00" stroke-width="1.5"/>'
+  +'<line x1="2" y1="-3" x2="1" y2="-8" stroke="#2a0a00" stroke-width="1.5"/>'
+  +'<line x1="7" y1="-5" x2="7" y2="-9" stroke="#2a0a00" stroke-width="1.5"/>'
+  +'<line x1="12" y1="-3" x2="14" y2="-8" stroke="#2a0a00" stroke-width="1.5"/>'
+  // ほっぺ
+  +'<ellipse cx="-14" cy="7" rx="7" ry="5" fill="#ffb6b6" opacity=".65"/>'
+  +'<ellipse cx="14" cy="7" rx="7" ry="5" fill="#ffb6b6" opacity=".65"/>'
+  // 口
+  +'<path d="M-5 13 Q0 19 5 13" stroke="#e74c3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+  +'</g>'
+  +'<text x="280" y="272" text-anchor="middle" font-size="12" fill="#4a4035" font-family="sans-serif" font-weight="500">赤服の少女</text>'
+
+  // ── 青服・旅人 ──
+  +'<g transform="translate(456,108)">'
+  +'<ellipse cx="0" cy="107" rx="20" ry="6" fill="rgba(0,0,0,0.13)"/>'
+  // マント
+  +'<path d="M-20,14 Q-32,65 -24,104 Q0,98 24,104 Q32,65 20,14 Z" fill="#1a5276" opacity=".65"/>'
+  // 足
+  +'<rect x="-14" y="72" width="12" height="32" rx="6" fill="#154360"/>'
+  +'<rect x="2" y="72" width="12" height="32" rx="6" fill="#154360"/>'
+  +'<ellipse cx="-8" cy="104" rx="13" ry="7" fill="#0d2e42"/>'
+  +'<ellipse cx="8" cy="104" rx="13" ry="7" fill="#0d2e42"/>'
+  // 胴体
+  +'<rect x="-18" y="14" width="36" height="46" rx="10" fill="#2980b9"/>'
+  // ベルト
+  +'<rect x="-18" y="51" width="36" height="8" rx="2" fill="#154360"/>'
+  +'<rect x="-6" y="51" width="12" height="8" rx="1" fill="#d4a010"/>'
+  // 腕左（上げ気味・リンゴ持ち）
+  +'<rect x="-32" y="0" width="14" height="11" rx="5" fill="#2980b9" transform="rotate(-40,-25,5)"/>'
+  // 腕右
+  +'<rect x="18" y="19" width="14" height="11" rx="5" fill="#2980b9"/>'
+  // リンゴ
+  +'<circle cx="-36" cy="-14" r="15" fill="#e74c3c"/>'
+  +'<ellipse cx="-40" cy="-18" rx="6" ry="5" fill="#fff" opacity=".22"/>'
+  +'<rect x="-37" y="-29" width="3" height="10" rx="1" fill="#2d6a1f"/>'
+  +'<ellipse cx="-31" cy="-29" rx="8" ry="5" fill="#3a8a2a" transform="rotate(-18,-31,-29)"/>'
+  // 落下リンゴ
+  +'<circle cx="-24" cy="9" r="11" fill="#e74c3c" opacity=".58"/>'
+  +'<circle cx="-16" cy="34" r="8" fill="#e74c3c" opacity=".3"/>'
+  +'<circle cx="-11" cy="56" r="5" fill="#e74c3c" opacity=".14"/>'
+  // 頭
+  +'<circle cx="0" cy="0" r="21" fill="#d4a876"/>'
+  // 旅人帽
+  +'<ellipse cx="0" cy="-18" rx="27" ry="7.5" fill="#154360"/>'
+  +'<rect x="-16" y="-34" width="32" height="20" rx="7" fill="#1a5276"/>'
+  // 帽子バンド
+  +'<rect x="-16" y="-18" width="32" height="4" rx="1" fill="#d4a010" opacity=".6"/>'
+  // 目
+  +'<ellipse cx="-7" cy="1" rx="4.5" ry="4.5" fill="#fff"/>'
+  +'<ellipse cx="7" cy="1" rx="4.5" ry="4.5" fill="#fff"/>'
+  +'<circle cx="-6" cy="2" r="2.8" fill="#1a3a5a"/>'
+  +'<circle cx="8" cy="2" r="2.8" fill="#1a3a5a"/>'
+  +'<circle cx="-5" cy="1" r="1.1" fill="#fff"/>'
+  +'<circle cx="9" cy="1" r="1.1" fill="#fff"/>'
+  // 驚き眉毛
+  +'<path d="M-13,-7 Q-7,-13 -1,-7" stroke="#2a1400" stroke-width="2.2" fill="none"/>'
+  +'<path d="M1,-7 Q7,-13 13,-7" stroke="#2a1400" stroke-width="2.2" fill="none"/>'
+  // 口（びっくり）
+  +'<ellipse cx="0" cy="12" rx="5.5" ry="5" fill="#c0392b"/>'
+  +'<ellipse cx="0" cy="13" rx="3.5" ry="3" fill="#8B1a0a"/>'
+  +'</g>'
+  +'<text x="456" y="272" text-anchor="middle" font-size="12" fill="#4a4035" font-family="sans-serif" font-weight="500">青服の旅人</text>'
+  +'</svg>';
+}
+/* ── Task timer ── */
+function startTaskTimer(q){
+  var left=q.duration;
+  function tick(){
+    left--;
+    var tel=document.getElementById('task-timer');
+    if(tel){tel.textContent=left;if(left<=8)tel.classList.add('warn')}
+    if(left<=0)revealInput(q);
+  }
+  taskTimer=setInterval(tick,1000);
+  var sb=document.getElementById('skip-btn');
+  if(sb)sb.addEventListener('click',function(){revealInput(q)});
+}
+
+function revealInput(q){
+  if(taskTimer){clearInterval(taskTimer);taskTimer=null}
+  if(!answers[q.id])answers[q.id]={};
+  answers[q.id].taskDone=true;
+  var scene=document.getElementById('task-scene');
+  if(scene){
+    scene.style.transition='opacity .4s';
+    scene.style.opacity='0';
+    setTimeout(function(){if(scene)scene.style.display='none'},400);
+  }
+  var skipWrap=document.getElementById('skip-btn');
+  if(skipWrap&&skipWrap.parentNode)skipWrap.parentNode.style.display='none';
+  var ta=document.getElementById('main-ta');
+  if(ta){ta.style.display='block';setTimeout(function(){ta.focus()},100)}
+  var notice=document.createElement('div');
+  notice.className='card';
+  notice.style.cssText='margin-bottom:.875rem';
+  notice.innerHTML='<p style="font-size:13px;color:var(--text2)">時間です。記憶を頼りに書いてください。</p>';
+  if(ta)ta.parentNode.insertBefore(notice,ta);
+}
+
+/* ── Save & Navigate ── */
+function saveCurrentAnswer(){
+  var q=QUESTIONS[cur];
+  if(!answers[q.id])answers[q.id]={};
+  document.querySelectorAll('.opt.sel').forEach(function(b){
+    var i=parseInt(b.getAttribute('data-i'));
+    answers[q.id].opts=i;
+    answers[q.id].optsText=q.opts[i];
+  });
+  var ta=document.getElementById('main-ta');
+  if(ta)answers[q.id].value=ta.value;
+  answers[q.id].ts=Date.now();
+}
+
+function handleNext(){
+  saveCurrentAnswer();
+  if(cur>=QUESTIONS.length-1)startAnalysis();
+  else goTo(cur+1);
+}
+
+/* ── Modal ── */
+function openConfirm(){document.getElementById('modal-bg').classList.add('open')}
+function closeConfirm(){document.getElementById('modal-bg').classList.remove('open')}
+
+/* ── Analysis ── */
+async function startAnalysis(){
+  saveCurrentAnswer();
+  showScreen('s-load');
+  document.getElementById('float-btn').style.display='none';
+  var msgs=['回答を読み解いています…','文章の構造を解析中…','思考の流れをマッピング中…','無意識のパターンを検出中…','言語と感性の質を測定中…'];
+  var li=0;
+  var lt=setInterval(function(){if(li<msgs.length)document.getElementById('load-txt').textContent=msgs[li++]},1600);
+  var prompt=buildPrompt();
+  var ai=null;
+  try{
+    var r=await fetch(ANALYZE_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt:prompt})
+    });
+    var d=await r.json();
+    if(d.error) throw new Error(d.error);
+    var raw=d.text||'';
+    ai=JSON.parse(raw.replace(/```json|```/g,'').trim());
+  }catch(e){
+    ai={
+      profile_title:'分析サーバーに接続できませんでした',
+      thinking_style:'回答データは正しく記録されています。分析を有効にするには、中継サーバー（Netlify Function）の設定が必要です。',
+      cognitive_pattern:'Netlifyの環境変数に ANTHROPIC_API_KEY が設定されているか確認してください。ローカルでファイルを直接開いている場合は、サーバーが動いていないため分析できません（Netlifyに公開した状態で動作します）。',
+      talent_core:'設定が完了してNetlify上で公開すると、回答内容から思考パターン・無意識の癖・才能の核心を詳細に分析します。',
+      language_insight:null,shadow:null,
+      dimensions:[
+        {label:'思考構造',value:'未分析',score:0},{label:'記憶スタイル',value:'未分析',score:0},
+        {label:'処理モード',value:'未分析',score:0},{label:'感性の質',value:'未分析',score:0},
+        {label:'エネルギー源',value:'未分析',score:0}
+      ],
+      keywords:['サーバー設定を確認してください']
+    };
+  }
+  clearInterval(lt);
+  showResult(ai);
+}
+
+function buildPrompt(){
+  var lines=['【回答データ】\n'];
+  QUESTIONS.forEach(function(q){
+    var a=answers[q.id];
+    if(!a||(! a.value&&!a.optsText&&!a.taskDone))return;
+    lines.push('■ '+q.label+'（'+q.layer+'）');
+    lines.push('問い: '+q.title);
+    if(a.optsText)lines.push('選択: '+a.optsText);
+    if(a.value)lines.push('回答: '+a.value);
+    if(a.edits&&a.edits.length){
+      lines.push('修正回数: '+a.edits.length+'回');
+      a.edits.slice(0,3).forEach(function(e,i){
+        lines.push('  修正前: '+e.before.slice(0,100));
+        lines.push('  修正後: '+e.after.slice(0,100));
+      });
+    }
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+
+function showResult(ai){
+  showScreen('s-result');
+  document.getElementById('r-title').textContent=ai.profile_title||'—';
+  var dh='';
+  (ai.dimensions||[]).forEach(function(d){
+    dh+='<div class="dim-card">'
+      +'<div class="dim-lbl">'+d.label+'</div>'
+      +'<div class="dim-val">'+d.value+'</div>'
+      +'<div class="dim-bar-bg"><div class="dim-bar" style="width:'+d.score+'%"></div></div>'
+      +'<div class="dim-score">'+d.score+'%</div>'
+      +'</div>';
+  });
+  document.getElementById('r-dims').innerHTML=dh;
+  var sections=[
+    {t:'思考スタイル',b:ai.thinking_style},
+    {t:'無意識の認知パターン',b:ai.cognitive_pattern},
+    {t:'才能の核心',b:ai.talent_core},
+    {t:'言語から読み取れること',b:ai.language_insight},
+    {t:'あなたが気づいていない可能性',b:ai.shadow},
+  ];
+  var bh='';
+  sections.forEach(function(s){
+    if(!s.b||s.b==='—')return;
+    bh+='<div class="iblock"><div class="iblock-title">'+s.t+'</div><div class="iblock-body">'+s.b+'</div></div>';
+  });
+  if(ai.keywords&&ai.keywords.length){
+    bh+='<div class="iblock"><div class="iblock-title">キーワード</div><div class="tag-row">';
+    ai.keywords.forEach(function(k){bh+='<span class="tag-pill">'+k+'</span>'});
+    bh+='</div></div>';
+  }
+  document.getElementById('r-blocks').innerHTML=bh;
+  window._lastResult=ai;
+  document.getElementById('r-retry').addEventListener('click',function(){
+    answers={};cur=0;
+    showScreen('s-start');
+    document.getElementById('float-btn').style.display='none';
+  });
+  document.getElementById('r-deepen').addEventListener('click',function(){
+    var ai=window._lastResult||{};
+    var txt='以下は私の認知プロファイル診断の結果です。これをもとに、向いている職業・環境・学習スタイルを詳しく教えてください。\n\n'
+      +'プロファイル: '+(ai.profile_title||'')+'\n'
+      +'思考スタイル: '+(ai.thinking_style||'')+'\n'
+      +'認知パターン: '+(ai.cognitive_pattern||'')+'\n'
+      +'才能の核心: '+(ai.talent_core||'')+'\n'
+      +(ai.keywords?'キーワード: '+ai.keywords.join('、'):'');
+    var btn=this;
+    if(typeof sendPrompt==='function'){
+      sendPrompt(txt);
+      return;
+    }
+    navigator.clipboard.writeText(txt).then(function(){
+      var orig=btn.innerHTML;
+      btn.innerHTML='<i class="ti ti-check"></i> コピーしました！Claudeに貼り付けてください';
+      setTimeout(function(){btn.innerHTML=orig},2800);
+    }).catch(function(){
+      alert('結果をコピーできませんでした。手動で結果をコピーしてClaudeに貼り付けてください。');
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('start-btn').addEventListener('click',startQuiz);
+});
+</script>
+</body>
+</html>
